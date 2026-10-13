@@ -1,0 +1,11 @@
+MATLAB 23.2.0.3097123 (R2023b) Update 11
+PASS: 1801 finite samples over 1800 s.
+PASS: total battery current = discharge source - regen source.
+PASS: nonoverlapping current-source commands.
+PASS: discharge lowers SOC and regeneration raises SOC.
+PASS: native Battery SOC matches charge integration within 0.004375 percentage points.
+SOC 80.00000 to 59.00437 percent; current -60.000 to 120.000 A; voltage 369.251 to 384.215 V.
+Final estimated bias 1.27468 A; injected bias 1.2 A.
+Coulomb counting: RMSE 20.262070, MAE 20.261507 percentage points
+EKF: RMSE 0.863496, MAE 0.767784 percentage points
+EKF with sensor bias: RMSE 0.458117, MAE 0.166844 percentage points

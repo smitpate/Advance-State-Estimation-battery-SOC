@@ -1,0 +1,65 @@
+# Battery, discharge and regeneration — R2023b
+
+Open **EV_Battery_Discharge_Regen.slx** and press **Run**. Double-click the Scope blocks on the right. Or run **run_and_open_scopes.m** to simulate, check results and open the Scopes automatically.
+
+This version uses the **actual Simscape Electrical / Specialized Power Systems Battery block**. The battery icon on the left represents a **350 V, 114.3 Ah, approximately 40 kWh pack**. It is a lumped EV pack, not a single physical 350 V cell. The previous hand-built OCV-source/RC battery has been replaced.
+
+Two physical Controlled Current Source blocks are connected across the battery:
+
+- **Discharge current source:** draws 120 A out of battery + and returns it to battery -. It acts as the traction load.
+- **Regenerative current source:** wired in the opposite direction; drives 60 A into battery +, charging it. It represents recovered current from braking. It is not a full motor/inverter mechanical-energy model.
+
+An ideal controlled current source is an electrical source with actual SPS electrical terminals. Its Simulink input only sets the requested amperes. Zero command means zero current, not a short across the battery.
+
+## What happens during the run
+
+The 600-second sequence repeats three times:
+
+| Time within each cycle | Discharge source | Regen source | What the battery does |
+|---|---:|---:|---|
+| 0–60 s | 0 A | 0 A | Rest |
+| 60–360 s | 120 A | 0 A | Discharge; SOC falls |
+| 360–420 s | 0 A | 0 A | Rest / voltage relaxation |
+| 420–540 s | 0 A | 60 A | Charge; net current is -60 A and SOC rises |
+| 540–600 s | 0 A | 0 A | Rest |
+
+Commands never overlap. This is a synthetic test sequence. Battery initial SOC is 80%; all estimator priors are 60%, deliberately incorrect. Only noisy voltage/current reach the estimators.
+
+## Open these Scopes
+
+1. **Battery V I SOC:** three rows, showing pack voltage, signed battery current and the native Battery SOC output.
+2. **SOC comparison:** true SOC, Coulomb counting, EKF, and EKF with current-bias estimation together in percent.
+3. **Discharge and regeneration:** the two positive source-current commands and measured signed net battery current. Positive net current = discharge, negative = regeneration. Because the sources are ideal, source commands equal their branch currents; only the net current is independently sensed.
+4. **Sensor bias estimate:** augmented EKF estimated current-sensor offset; the injected mean offset is +1.2 A.
+
+Scopes are the primary result display. They retain the full run and have named signals, legends, grids and fixed useful ranges. A saved SLX stores Scope configuration, not a permanently populated waveform; rerun the model after reopening it to repopulate the Scopes.
+
+## Every block and its parameters
+
+Read **Every_block_and_parameter.md** for a numbered list of every placed block, its library, parameter settings and reason for use. The same reason is stored in each block's Description. **Exact_block_parameters.json** records full raw dialog parameters, including defaults and inactive options. MathWorks implementation blocks inside the linked Battery/Source libraries are not custom project blocks.
+
+Useful meanings for the Battery settings:
+
+| Setting | Why it is used |
+|---|---|
+| Lithium-Ion | Selects a rechargeable Li-ion charge/discharge voltage model. |
+| Nominal voltage 350 V | Representative EV pack-level voltage. |
+| Rated capacity 114.2857 Ah | 40,000 Wh / 350 V; retains the previous EV-scale rating. |
+| Initial SOC 80% | Leaves room for both discharge and regenerative charging. |
+| Response time 30 s | Provides the native battery's dynamic polarization response. Internally, the current-filter time constant is 30/3 = 10 s. |
+| Determine parameters from nominal values: on | Uses the SPS generic preset because measured cell characterization data were not supplied. |
+| Maximum capacity | Generic discharge-curve capacity point; the block also computes its own internal fit capacity and scaling. |
+| Cut-off voltage | Defines the low-voltage end of the fitted discharge curve; it is not a separate contactor/BMS trip in this circuit. |
+| Fully charged voltage | Sets the high-voltage end of the generic curve. |
+| Nominal discharge current | Reference current used to fit the discharge curve; actual circuit current is set by the two sources. |
+| Internal resistance | Models the immediate terminal-voltage drop and internal loss. No extra external R0 is added, avoiding double-counting. |
+| Capacity at nominal voltage | Locates the nominal-voltage point on the discharge curve. |
+| Exponential zone voltage/capacity | Sets the early, high-SOC nonlinear part of the fitted voltage curve. |
+| Temperature/aging: off | Keeps the test focused on SOC estimation; inactive thermal/aging defaults have no effect. |
+| Plot currents [60 120 180] A | Only affects the Battery dialog's optional characteristic plot; does not drive the circuit. |
+
+The numerical values actually generated by the Battery mask are in the block guide. They are generic modeled values, not measured Nissan-cell data. The observer reads the fixed fitted constants from the same Battery mask during construction, including its effective internal capacity and rated-capacity scaling. This is parameter-matched baseline testing, not an aging/mismatch robustness claim.
+
+The EKF predicts SOC and filtered current, then corrects them using terminal-voltage error. The augmented EKF adds an unknown current offset as a third state. Charging and discharging use different native polarization expressions. Bias estimation can converge slowly and is not guaranteed to beat the ordinary EKF in this short test. Covariances, bounds and Jacobian increments are listed in the guide and source code.
+
+`build_battery_scopes.m` rebuilds the generated SLX. Save manual edits under another name before rebuilding. `run_and_open_scopes.m` normally loads the saved SLX without rebuilding. No R2026 MATLAB version is used.
